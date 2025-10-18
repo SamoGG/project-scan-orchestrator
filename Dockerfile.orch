@@ -1,0 +1,19 @@
+# Stabilná base (bookworm)
+FROM python:3.11-bookworm
+
+
+RUN printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/80retries
+
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nmap ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY orchestrator/requirements.txt /app/orchestrator/requirements.txt
+RUN pip install --no-cache-dir -r /app/orchestrator/requirements.txt
+
+COPY orchestrator /app/orchestrator
+
+ENTRYPOINT ["bash"]

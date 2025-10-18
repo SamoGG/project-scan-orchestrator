@@ -1,0 +1,12 @@
+job_name: internal_quickscan
+scope:
+  - benign_host
+  - vulnerable_host
+scan_tool: nmap
+options: "-sV -Pn -p 80"
+rate_limit: 50
+authorization:
+  owner: "IT ops"
+  doc: "signed_scan_consent.pdf"
+notify:
+  - "sec-team@example.local"

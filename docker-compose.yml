@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+
+  db:
+    image: postgres:16
+    container_name: scans-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: scans
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/00_schema.sql:ro
+
+  benign_host:
+    image: nginx:latest
+    expose:
+      - "80"
+
+  vulnerable_host:
+    image: httpd:2.2
+    expose:
+      - "80"
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orch
+    volumes:
+      - ./data/raw:/app/data/raw
+      - ./jobs:/app/jobs
+      - ./orchestrator:/app/orchestrator
+    depends_on:
+      - benign_host
+      - vulnerable_host
+    tty: true
+    stdin_open: true
+
+volumes:
+  dbdata:
