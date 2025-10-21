@@ -40,5 +40,20 @@ services:
     tty: true
     stdin_open: true
 
+  parser:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingest
+    image: scans-parser:latest
+    depends_on:
+      - db
+    environment:
+      DB_URL: postgresql://user:pass@db:5432/scans
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./ingest:/app/ingest:ro
+    working_dir: /app
+    command: [ "--raw-dir", "/app/data/raw", "--db", "postgresql://user:pass@db:5432/scans" ]
+
 volumes:
   dbdata:

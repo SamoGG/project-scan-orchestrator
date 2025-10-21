@@ -1,0 +1,2 @@
+xmltodict
+psycopg2-binary

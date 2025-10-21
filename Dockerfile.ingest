@@ -1,0 +1,19 @@
+FROM python:3.11-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY ingest/requirements.txt /app/ingest/requirements.txt
+RUN pip install --no-cache-dir -r /app/ingest/requirements.txt
+
+COPY ingest /app/ingest
+
+RUN useradd -m appuser
+USER appuser
+
+ENTRYPOINT ["python", "-m", "ingest.parse_nmap"]

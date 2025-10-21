@@ -6,6 +6,11 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 
+# ---------------------------------------------------------------
+# Pomocné interné funkcie
+# ---------------------------------------------------------------
+
+
 def _ensure_list(x):
     if x is None:
         return []
@@ -42,6 +47,11 @@ def _service_banner(svc):
     if svc.get("@extrainfo"):
         parts.append(f"({svc['@extrainfo']})")
     return " ".join(parts) if parts else None
+
+
+# ---------------------------------------------------------------
+# Hlavná parsovacia funkcia
+# ---------------------------------------------------------------
 
 
 def parse_nmap_xml(file_path):
@@ -100,52 +110,56 @@ def parse_nmap_xml(file_path):
     return [r for r in results if r["port"] is not None and r["proto"]]
 
 
+# ---------------------------------------------------------------
+# Funkcia na uloženie dát do PostgreSQL
+# ---------------------------------------------------------------
+
+
 def upsert_into_db(records, conn_str):
-    """
-    - UPSERT hostov podľa IP
-    - INSERT services s de-dupe (host_id,port,proto)
-    Pre výkon robí batch operácie.
-    """
     if not records:
         return
 
     conn = psycopg2.connect(conn_str)
     cur = conn.cursor()
 
-    # 1) UPSERT hosts
+    # 1) UPSERT hosts and RETURN ids in one go
     ips = sorted({r["ip"] for r in records})
-    execute_values(
-        cur,
-        """
+    sql_hosts = """
         INSERT INTO hosts (ip, last_seen)
         VALUES %s
-        ON CONFLICT (ip) DO UPDATE SET last_seen = now()
-        """,
+        ON CONFLICT (ip) DO UPDATE
+          SET last_seen = EXCLUDED.last_seen
+        RETURNING id, ip::text
+    """
+    execute_values(
+        cur,
+        sql_hosts,
         [(ip,) for ip in ips],
         template="(%s, now())",
     )
+    rows = cur.fetchall()
+    id_map = {ip: hid for (hid, ip) in rows}
 
-    # načítaj host_id mapu
-    cur.execute("SELECT id, ip FROM hosts WHERE ip = ANY(%s)", (ips,))
-    id_map = {ip: hid for hid, ip in cur.fetchall()}
-
-    # 2) INSERT services (de-dupe v batchi)
-    svc_rows = []
-    seen = set()
+    # 2) INSERT services with batch de-dupe
+    svc_rows, seen = [], set()
     for r in records:
-        key = (id_map[r["ip"]], r["port"], r["proto"])
+        hid = id_map.get(r["ip"])
+        if hid is None:
+            # ultra-safe fallback (shouldn't happen with RETURNING):
+            cur.execute("SELECT id FROM hosts WHERE ip = %s::inet", (r["ip"],))
+            row = cur.fetchone()
+            if not row:
+                # if still missing, skip this record
+                continue
+            hid = row[0]
+            id_map[r["ip"]] = hid
+
+        key = (hid, r["port"], r["proto"])
         if key in seen:
             continue
         seen.add(key)
         svc_rows.append(
-            (
-                id_map[r["ip"]],
-                r["port"],
-                r["proto"],
-                r["product"],
-                r["version"],
-                r["banner"],
-            )
+            (hid, r["port"], r["proto"], r["product"], r["version"], r["banner"])
         )
 
     if svc_rows:
@@ -171,7 +185,7 @@ def upsert_into_db(records, conn_str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python -m ingest.parse_nmap <glob-pattern> <postgres-url>")
+        print("Usage: docker compose run --rm parserp <glob-pattern> <postgres-url>")
         sys.exit(2)
 
     pattern = sys.argv[1]
