@@ -82,6 +82,7 @@ ORDER BY s.last_seen DESC;
 ---
 
 ## Architektúra (zjednodušená)
+```
 [ Job Configs (YAML) ]
 → Orchestrator → Worker Pool → Scanner (nmap/masscan)
 ↓
@@ -96,6 +97,7 @@ Risk Scoring
 Dashboard
 ↓
 Report / Playbook Generator
+```
 
 ## Výstupy projektu
 - **Kód:**  
