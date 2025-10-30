@@ -5,7 +5,7 @@
 normalizuje výsledky, obohacuje ich o CVE a hodnotí podľa rizika.
 
 ## Rýchly štart
-```
+```bash
 git clone https://github.com/SamoGG/project-scan-orchestrator.git
 cd project-orchestrator
 ```
@@ -14,7 +14,7 @@ cd project-orchestrator
 docker-compose build
 ```
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
@@ -77,6 +77,17 @@ FROM hosts h
 JOIN services s ON s.host_id = h.id
 WHERE s.last_seen > now() - interval '1 hour'
 ORDER BY s.last_seen DESC;
+```
+
+Spustenie service enricheru, ktorý nám k servicom pridám CVE ak nejaké sú v cve_cache, ktoré sa zhodujú.
+```bash
+docker compose run --rm enricher
+```
+
+Kontrola výsledkov.
+
+```sql
+docker compose exec db psql -U user -d scans -c "SELECT service_id, cve_id, cvss FROM vulnerabilities ORDER BY service_id, cve_id;"
 ```
 
 ---

@@ -30,15 +30,27 @@ CREATE TABLE IF NOT EXISTS scan_jobs (
 
 CREATE TABLE IF NOT EXISTS vulnerabilities (
   id SERIAL PRIMARY KEY,
-  service_id INT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
   cve_id TEXT NOT NULL,
   cvss NUMERIC,
   description TEXT,
-  exploit_maturity TEXT,
-  risk_score NUMERIC
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (service_id, cve_id)
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'uniq_vuln_service_cve'
+  ) THEN
+    ALTER TABLE vulnerabilities
+      ADD CONSTRAINT uniq_vuln_service_cve UNIQUE (service_id, cve_id);
+  END IF;
+END $$;
 
 
 CREATE UNIQUE INDEX IF NOT EXISTS hosts_ip_key ON hosts (ip);
 CREATE UNIQUE INDEX IF NOT EXISTS services_host_port_proto_key
   ON services (host_id, port, proto);
+
+

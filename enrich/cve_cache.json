@@ -1,0 +1,21 @@
+{
+    "Apache httpd:2.2.34": [
+        {
+            "cve_id": "CVE-2017-3169",
+            "cvss": 9.8,
+            "description": "Auth bypass in Apache 2.2.x"
+        },
+        {
+            "cve_id": "CVE-2017-7679",
+            "cvss": 7.5,
+            "description": "mod_mime buffer over-read"
+        }
+    ],
+    "nginx:1.29.2": [
+        {
+            "cve_id": "CVE-2024-DEMO",
+            "cvss": 3.1,
+            "description": "Demo, low-risk example"
+        }
+    ]
+}
