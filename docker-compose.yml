@@ -68,5 +68,17 @@ services:
       - DATABASE_URL=postgresql://user:pass@db:5432/scans
     entrypoint: [ "python", "-m", "enrich.cve_enricher" ]
 
+  scorer:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingest
+    command: [ "python", "-m", "scoring.risk_score", "--db", "postgresql://user:pass@db:5432/scans", "--aggregate" ]
+    depends_on:
+      - db
+    volumes:
+      - ./scoring:/app/scoring
+      - ./enrich:/app/enrich
+      - ./ingest:/app/ingest
+
 volumes:
   dbdata:
