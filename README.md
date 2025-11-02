@@ -86,9 +86,24 @@ docker compose run --rm enricher
 
 Kontrola výsledkov.
 
-```sql
+```bash
 docker compose exec db psql -U user -d scans -c "SELECT service_id, cve_id, cvss FROM vulnerabilities ORDER BY service_id, cve_id;"
 ```
+
+Spustenie risk scoringu pre dáta.
+```bash
+docker compose run --rm scorer
+```
+
+
+| Parameter     | Popis                                                            |
+| ------------- | ---------------------------------------------------------------- |
+| `--db`        | DSN na PostgreSQL (ak nie je nastavená premenná `DATABASE_URL`)  |
+| `--dry-run`   | Vypočíta skóre, ale nezapíše ho do DB                            |
+| `--recompute` | Prepočíta všetky záznamy, aj tie, ktoré už majú `risk_score`     |
+| `--aggregate` | Po výpočte aktualizuje aj `services.risk_max` a `hosts.risk_max` |
+| `--limit N`   | Spracuje len prvých *N* záznamov                                 |
+| `--where`     | Voliteľný SQL filter (napr. `"v.cve_id LIKE 'CVE-2021-%'"`)      |
 
 ---
 
