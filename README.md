@@ -1,10 +1,10 @@
-# Orchestrator a prioritizačný systém pre autorizované sieťové skenovanie
+# Orchestrator and Prioritization System for Authorized Network Scanning
 
-**Autor:** Samuel Gabriel Galgóci  
-**Cieľ:** Vybudovať bezpečný, konfigurovateľný orchestrator, ktorý spúšťa autorizované sieťové skeny, 
-normalizuje výsledky, obohacuje ich o CVE a hodnotí podľa rizika.
+**Author:** Samuel Gabriel Galgóci  
+**Goal:** Build a secure, configurable orchestrator that launches authorized network scans,  
+normalizes the results, enriches them with CVE data, and evaluates findings by risk.
 
-## Rýchly štart
+## Quick Start
 ```bash
 git clone https://github.com/SamoGG/project-scan-orchestrator.git
 cd project-orchestrator
@@ -28,50 +28,53 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Postup
+### Workflow
 
-Start/stop docker
+Start/stop Docker:
 ```bash
 docker compose up -d
 
 docker compose stop
 ```
 
-Pre oskenovanie hostov treba spustit orchestrator. Ten nám vytvorí xml a log súbory pre parsovanie.
+### CLI
+
+To scan hosts, start the orchestrator.  
+It will create XML and log files for parsing.
 ```bash
 docker compose exec orchestrator python orchestrator/scan_orchestrator.py jobs/internal_quickscan.yaml
 ```
 
-Následne pustíme parser na ulozenie suborov do DB.
+Then run the parser to save the files into the database:
 ```bash
 docker compose run --rm parser "/app/data/raw/internal_quickscan/*.xml" "postgresql://user:pass@db:5432/scans"
 ```
 
-Pre kontrolu súborov v DB:
+To check the data in the database:
 ```bash
 docker compose exec db psql -U user -d scans
 ```
 
-Príklad querry:
+Example queries:
 ```sql
--- akych hostov sme naskenovali
+-- list of scanned hosts
 SELECT * FROM hosts ORDER BY id;
 
--- vypisanie vsetkych servisov pre hostov
+-- list of all services for each host
 SELECT h.ip, s.port, s.proto, s.product, s.version, s.banner,
        s.first_seen, s.last_seen
 FROM hosts h
 JOIN services s ON s.host_id = h.id
 ORDER BY h.ip, s.port;
 
--- pocet servicov na hosta
+-- number of services per host
 SELECT h.ip, COUNT(*) AS svc_count
 FROM hosts h
 JOIN services s ON s.host_id = h.id
 GROUP BY h.ip
 ORDER BY svc_count DESC;
 
--- zaznam z poslednej hodiny
+-- records from the last hour
 SELECT h.ip, s.port, s.proto, s.last_seen
 FROM hosts h
 JOIN services s ON s.host_id = h.id
@@ -79,35 +82,66 @@ WHERE s.last_seen > now() - interval '1 hour'
 ORDER BY s.last_seen DESC;
 ```
 
-Spustenie service enricheru, ktorý nám k servicom pridám CVE ak nejaké sú v cve_cache, ktoré sa zhodujú.
+Run the **service enricher**, which adds CVEs to services that match entries in the `cve_cache`.
 ```bash
 docker compose run --rm enricher
 ```
 
-Kontrola výsledkov.
-
+Check the results:
 ```bash
 docker compose exec db psql -U user -d scans -c "SELECT service_id, cve_id, cvss FROM vulnerabilities ORDER BY service_id, cve_id;"
 ```
 
-Spustenie risk scoringu pre dáta.
+Run **risk scoring** for the stored data:
 ```bash
 docker compose run --rm scorer
 ```
+Risk calculation policy is in **RISK_SCORING.md**
 
-
-| Parameter     | Popis                                                            |
-| ------------- | ---------------------------------------------------------------- |
-| `--db`        | DSN na PostgreSQL (ak nie je nastavená premenná `DATABASE_URL`)  |
-| `--dry-run`   | Vypočíta skóre, ale nezapíše ho do DB                            |
-| `--recompute` | Prepočíta všetky záznamy, aj tie, ktoré už majú `risk_score`     |
-| `--aggregate` | Po výpočte aktualizuje aj `services.risk_max` a `hosts.risk_max` |
-| `--limit N`   | Spracuje len prvých *N* záznamov                                 |
-| `--where`     | Voliteľný SQL filter (napr. `"v.cve_id LIKE 'CVE-2021-%'"`)      |
+| Parameter     | Description                                                                 |
+| -------------- | --------------------------------------------------------------------------- |
+| `--db`         | PostgreSQL DSN (if the `DATABASE_URL` environment variable is not set)      |
+| `--dry-run`    | Compute the score but do not write it to the DB                             |
+| `--recompute`  | Recompute all records, including those that already have `risk_score`       |
+| `--aggregate`  | After computation, also update `services.risk_max` and `hosts.risk_max`     |
+| `--limit N`    | Process only the first *N* records                                          |
+| `--where`      | Optional SQL filter (e.g. `"v.cve_id LIKE 'CVE-2021-%'"`)                   |
 
 ---
 
-## Architektúra (zjednodušená)
+### Dashboard
+
+```bash
+docker compose up -d
+#Open http://localhost:8501
+```
+
+- **One-click orchestration**
+  - `▶ Run Scan` — executes network scan from a selected YAML job  
+  - `Parse Nmap XML` — normalizes XML results and inserts into DB  
+  - `CVE Enrich` — fetches vulnerability data from CVE feeds  
+  - `Risk Scoring` — calculates risk values for each service
+- **Live console streaming** for every process (stdout + stderr)
+- **Data views**
+  - **Hosts** — hosts with service counts and max risk
+  - **Services** — ports, banners, product versions, risk scores
+  - **Vulnerabilities** — searchable & filterable table with CSV export
+  - **Top Risks** — highest-risk entries (top 50)
+  - **Scan Jobs** — historical overview with timestamps & configs
+- **Maintenance tools**
+  - Delete raw XML/logs under `data/raw/**`
+  - Truncate database tables (`hosts`, `services`, `vulnerabilities`)
+
+#### Environment variables
+
+| Variable | Default | Description |
+|-----------|----------|-------------|
+| `DB_DSN` | `postgresql://user:pass@db:5432/scans` | Database connection string |
+| `JOBS_DIR` | `jobs` | Directory with scan job YAML files |
+| `RAW_DIR` | `data/raw` | Directory for raw Nmap XML outputs |
+| `CVE_CACHE` | `enrich/cve_cache.json` | Local CVE cache path |
+
+## Architecture (Simplified)
 ```
 [ Job Configs (YAML) ]
 → Orchestrator → Worker Pool → Scanner (nmap/masscan)
@@ -125,17 +159,17 @@ Dashboard
 Report / Playbook Generator
 ```
 
-## Výstupy projektu
-- **Kód:**  
-  - `orchestrator/scan_orchestrator.py` – spúšťanie skenov podľa YAML konfigurácie  
-  - `ingest/parse_nmap.py` – parser a ukladanie do DB  
-  - `enrich/cve_enricher.py` – modul pre doplnenie CVE  
-  - `scoring/risk_score.py` – výpočet rizikového skóre  
-  - `dashboard/` – vizualizácia nálezov   
-- **Lab:** `docker-compose.yml` s testovacími hostmi a Postgres DB  
-- **Demo:** jednoduchý dashboard + ukážkový report s prioritizovanými nálezmi  
+## Project Components
+- **Code:**  
+  - `orchestrator/scan_orchestrator.py` – executes scans based on YAML configuration  
+  - `ingest/parse_nmap.py` – parser and database ingestion  
+  - `enrich/cve_enricher.py` – module for CVE enrichment  
+  - `scoring/risk_score.py` – risk score computation  
+  - `dashboard/` – visualization of findings  
+- **Lab:** `docker-compose.yml` with test hosts and Postgres DB  
+- **Demo:** simple dashboard + sample report with prioritized findings  
 
-## Testovacie scenáre
-1. **Benign host** – server bez známeho CVE → očakávame nízke skóre.  
-2. **Vulnerable service** – služba so známym CVE → očakávame vysoké skóre.  
-3. **Exposed internal** – databázový port vystavený do verejnej siete → vysoké skóre expozície.  
+## Test Scenarios
+1. **Benign host** – server without known CVEs → expected low score.  
+2. **Vulnerable service** – service with known CVEs → expected high score.  
+3. **Exposed internal** – database port exposed to the public network → expected high exposure score.  

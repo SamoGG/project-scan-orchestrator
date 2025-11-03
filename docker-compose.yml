@@ -80,5 +80,29 @@ services:
       - ./enrich:/app/enrich
       - ./ingest:/app/ingest
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.orch
+    entrypoint: []
+    command: [ "python", "-m", "streamlit", "run", "dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0" ]
+    environment:
+      - DB_DSN=postgresql://user:pass@db:5432/scans
+      - JOBS_DIR=jobs
+      - RAW_DIR=data/raw
+      - CVE_CACHE=enrich/cve_cache.json
+    volumes:
+      - ./jobs:/app/jobs
+      - ./data/raw:/app/data/raw
+      - ./dashboard:/app/dashboard
+      - ./orchestrator:/app/orchestrator
+      - ./ingest:/app/ingest
+      - ./enrich:/app/enrich
+      - ./scoring:/app/scoring
+    depends_on:
+      - db
+    ports:
+      - "8501:8501"
+
 volumes:
   dbdata:

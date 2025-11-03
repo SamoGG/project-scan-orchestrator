@@ -13,6 +13,7 @@ WORKDIR /app
 
 COPY orchestrator/requirements.txt /app/orchestrator/requirements.txt
 RUN pip install --no-cache-dir -r /app/orchestrator/requirements.txt
+RUN pip install --no-cache-dir streamlit psycopg2-binary
 
 COPY orchestrator /app/orchestrator
 

@@ -6,15 +6,15 @@ import psycopg2
 from psycopg2.extras import DictCursor
 
 
-# ====== Pomocné funkcie pre výpočet skóre ====================================
+# ====== Helper functions for score computation ====================================
 
-# mapovanie dôležitosti aktíva a úrovne exploitácie
+# Mapping of asset criticality and exploit maturity
 CRIT_MAP = {"low": 20, "medium": 50, "high": 100}
 MATURITY_MAP = {"none": 0, "poc": 50, "public": 100}
 
 
 def normalize_cvss(cvss: Optional[float]) -> float:
-    """Normalizuje CVSS hodnotu z rozsahu 0–10 na rozsah 0–100."""
+    """Normalizes CVSS value from range 0–10 to 0–100."""
     try:
         v = float(cvss)
     except (TypeError, ValueError):
@@ -24,23 +24,23 @@ def normalize_cvss(cvss: Optional[float]) -> float:
 
 
 def score_from_criticality(crit: Optional[str]) -> float:
-    """Vráti skóre podľa kritickosti aktíva (low/medium/high)."""
+    """Returns score based on asset criticality (low/medium/high)."""
     if not isinstance(crit, str):
         return CRIT_MAP["medium"]
     return CRIT_MAP.get(crit.lower(), CRIT_MAP["medium"])
 
 
 def score_from_exposure(is_public: Optional[bool]) -> float:
-    """Ak je služba verejne dostupná, vráti 100, inak 0."""
+    """If the service is publicly accessible, returns 100, otherwise 0."""
     return 100.0 if bool(is_public) else 0.0
 
 
 def score_from_maturity(exploitability: Optional[str]) -> float:
-    """Preloží textovú úroveň exploitovateľnosti na číselné skóre."""
+    """Translates textual exploit maturity level into a numeric score."""
     if not isinstance(exploitability, str):
         return MATURITY_MAP["none"]
     key = exploitability.strip().lower()
-    # akceptuje viaceré varianty z bežných CVE feedov
+    # accepts multiple variants from common CVE feeds
     if key in ("public", "weaponized", "exploited"):
         return MATURITY_MAP["public"]
     if key in ("poc", "proof_of_concept", "proof-of-concept"):
@@ -54,7 +54,7 @@ def compute_risk(
     is_public: Optional[bool],
     exploitability: Optional[str],
 ) -> float:
-    """Spočíta výsledné rizikové skóre podľa váhového modelu."""
+    """Computes the final risk score according to the weighted model."""
     cvss_norm = normalize_cvss(cvss)
     asset_score = score_from_criticality(asset_crit)
     exposure_score = score_from_exposure(is_public)
@@ -66,15 +66,15 @@ def compute_risk(
         + 0.15 * exposure_score
         + 0.10 * maturity_score
     )
-    # zaokrúhlenie na dve desatinné miesta
+    # round to two decimal places
     return round(risk, 2)
 
 
-# ====== Pomocné funkcie pre prácu s DB =======================================
+# ====== Helper functions for working with the DB =======================================
 
 
 def table_has_column(cur, table: str, column: str) -> bool:
-    """Zistí, či má daná tabuľka daný stĺpec (používa sa na kontrolu schémy)."""
+    """Checks whether a given table has a given column (used to verify schema)."""
     cur.execute(
         """
         SELECT 1
@@ -89,20 +89,20 @@ def table_has_column(cur, table: str, column: str) -> bool:
 
 
 def ensure_schema(cur):
-    """Vytvorí chýbajúce stĺpce, ktoré skript potrebuje. Ak už existujú, nič nerobí."""
-    # vulnerabilities.risk_score – výsledné rizikové skóre
+    """Creates missing columns required by this script. If they already exist, does nothing."""
+    # vulnerabilities.risk_score – the resulting risk score
     cur.execute(
         "ALTER TABLE IF EXISTS vulnerabilities ADD COLUMN IF NOT EXISTS risk_score NUMERIC"
     )
-    # pomocné agregované stĺpce pre max riziko
+    # helper aggregated columns for max risk
     cur.execute(
         "ALTER TABLE IF EXISTS services ADD COLUMN IF NOT EXISTS risk_max NUMERIC"
     )
     cur.execute("ALTER TABLE IF EXISTS hosts ADD COLUMN IF NOT EXISTS risk_max NUMERIC")
-    # voliteľné meta stĺpce na tabuľke hosts:
-    # asset_criticality (TEXT) – dôležitosť aktíva: low/medium/high
-    # is_public (BOOLEAN) – či je služba verejne dostupná
-    # nevytvárajú sa automaticky, aby sa nenarušila vlastná schéma používateľa
+    # optional meta columns on hosts table:
+    # asset_criticality (TEXT) – importance of the asset: low/medium/high
+    # is_public (BOOLEAN) – whether the service is publicly accessible
+    # not created automatically to avoid altering user's own schema
 
 
 def load_batch(
@@ -112,10 +112,10 @@ def load_batch(
     limit: Optional[int],
     have_asset_cols: Tuple[bool, bool],
 ):
-    """Načíta dávku záznamov (vulnerabilities + väzby na host/service) pre spracovanie."""
+    """Loads a batch of records (vulnerabilities + their host/service relations) for processing."""
     has_crit, has_public = have_asset_cols
 
-    # dynamicky doplní stĺpce podľa dostupných meta údajov
+    # dynamically adds columns based on available metadata
     crit_col = "h.asset_criticality" if has_crit else "NULL::text AS asset_criticality"
     pub_col = "h.is_public" if has_public else "FALSE::boolean AS is_public"
 
@@ -148,7 +148,7 @@ def load_batch(
 
 
 def update_vuln_score(cur, vuln_id: int, score: float):
-    """Zapíše vypočítané skóre späť do tabuľky vulnerabilities."""
+    """Writes the calculated score back into the vulnerabilities table."""
     cur.execute(
         "UPDATE vulnerabilities SET risk_score = %s WHERE id = %s",
         (score, vuln_id),
@@ -156,8 +156,8 @@ def update_vuln_score(cur, vuln_id: int, score: float):
 
 
 def aggregate_service_host(cur):
-    """Agreguje najvyššie riziko z úrovne vulnerabilities do services a hosts."""
-    # služby – max skóre z priradených zraniteľností
+    """Aggregates the highest risk from vulnerabilities up to services and hosts."""
+    # services – max score from associated vulnerabilities
     cur.execute(
         """
         UPDATE services s
@@ -171,7 +171,7 @@ def aggregate_service_host(cur):
         WHERE sub.service_id = s.id
         """
     )
-    # hosty – max skóre zo služieb
+    # hosts – max score from services
     cur.execute(
         """
         UPDATE hosts h
@@ -186,56 +186,58 @@ def aggregate_service_host(cur):
     )
 
 
-# ====== Hlavná funkcia / CLI rozhranie =======================================
+# ====== Main function / CLI interface =======================================
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Vypočíta rizikové skóre pre zraniteľnosti a (voliteľne) ho agreguje do services/hosts."
+        description="Computes risk scores for vulnerabilities and (optionally) aggregates them into services/hosts."
     )
     ap.add_argument(
         "--db",
         default=os.environ.get("DATABASE_URL"),
-        help="PostgreSQL DSN, napr. postgresql://user:pass@localhost:5432/scans (alebo použi premennú DATABASE_URL)",
+        help="PostgreSQL DSN, e.g. postgresql://user:pass@localhost:5432/scans (or use the DATABASE_URL environment variable)",
     )
     ap.add_argument(
         "--dry-run",
         action="store_true",
-        help="Vypočíta skóre, ale nezapíše zmeny do DB",
+        help="Compute scores but do not write any changes to the DB",
     )
     ap.add_argument(
         "--recompute",
         action="store_true",
-        help="Prepočíta všetky záznamy aj tie, ktoré už majú risk_score",
+        help="Recalculate all records including those that already have risk_score",
     )
     ap.add_argument(
         "--aggregate",
         action="store_true",
-        help="Po výpočte vypočíta aj max riziko pre služby a hosty",
+        help="After computation, also compute max risk for services and hosts",
     )
-    ap.add_argument("--limit", type=int, default=None, help="Spracuje len N záznamov")
+    ap.add_argument("--limit", type=int, default=None, help="Process only N records")
     ap.add_argument(
         "--where",
         type=str,
         default=None,
-        help="Doplnková SQL podmienka (napr. \"v.cve_id LIKE 'CVE-2021-%'\")",
+        help="Additional SQL condition (e.g. \"v.cve_id LIKE 'CVE-2021-%'\")",
     )
     args = ap.parse_args()
 
     if not args.db:
-        raise SystemExit("CHYBA: Uveď --db alebo nastav premennú DATABASE_URL")
+        raise SystemExit(
+            "ERROR: Specify --db or set the DATABASE_URL environment variable"
+        )
 
     with psycopg2.connect(args.db) as conn:
         conn.autocommit = False
         with conn.cursor(cursor_factory=DictCursor) as cur:
-            # zabezpečí existenciu potrebných stĺpcov
+            # ensure required columns exist
             ensure_schema(cur)
 
-            # zistí, či existujú meta stĺpce na tabuľke hosts
+            # check if meta columns exist on hosts table
             has_crit = table_has_column(cur, "hosts", "asset_criticality")
             has_public = table_has_column(cur, "hosts", "is_public")
 
-            # načíta dávku záznamov
+            # load a batch of records
             batch = load_batch(
                 cur,
                 recompute=args.recompute,
@@ -256,7 +258,7 @@ def main():
                     update_vuln_score(cur, row["vuln_id"], risk)
                 processed += 1
 
-            # ak je zapnutá agregácia, spočíta aj max hodnoty
+            # If aggregation is enabled, compute max values
             if args.aggregate:
                 if not args.dry_run:
                     aggregate_service_host(cur)
@@ -264,13 +266,13 @@ def main():
             if args.dry_run:
                 conn.rollback()
                 print(
-                    f"[DRY-RUN] Vypočítaných {processed} zraniteľností. Žiadne zmeny nezapísané."
+                    f"[DRY-RUN] Computed {processed} vulnerabilities. No changes written."
                 )
             else:
                 conn.commit()
-                print(f"[OK] Aktualizovaných {processed} záznamov s risk_score.")
+                print(f"[OK] Updated {processed} records with risk_score.")
                 if args.aggregate:
-                    print("[OK] Agregované do services.risk_max a hosts.risk_max.")
+                    print("[OK] Aggregated into services.risk_max and hosts.risk_max.")
 
 
 if __name__ == "__main__":

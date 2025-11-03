@@ -7,7 +7,7 @@ from psycopg2.extras import execute_values
 
 
 # ---------------------------------------------------------------
-# Pomocné interné funkcie
+# Helper internal functions
 # ---------------------------------------------------------------
 
 
@@ -19,17 +19,17 @@ def _ensure_list(x):
 
 def _pick_ip(address_node):
     """
-    address_node môže byť dict alebo list(dict).
-    Vyber IPv4 ak existuje, inak prvú dostupnú adresu.
+    address_node can be a dict or list(dict).
+    Select IPv4 if it exists, otherwise return the first available address.
     """
     addrs = _ensure_list(address_node)
     if not addrs:
         return None
-    # dict s kľúčmi "@addr", "@addrtype"
+    # dict with keys "@addr", "@addrtype"
     for a in addrs:
         if isinstance(a, dict) and a.get("@addrtype", "").lower() in ("ipv4", "ip"):
             return a.get("@addr")
-    # fallback: prvá adresa
+    # fallback: first address
     first = addrs[0]
     return first.get("@addr") if isinstance(first, dict) else None
 
@@ -50,14 +50,14 @@ def _service_banner(svc):
 
 
 # ---------------------------------------------------------------
-# Hlavná parsovacia funkcia
+# Main parsing function
 # ---------------------------------------------------------------
 
 
 def parse_nmap_xml(file_path):
     """
-    Vráti list dictov: {ip, port, proto, product, version, banner}
-    Iba pre porty so stavom 'open'.
+    Returns a list of dicts: {ip, port, proto, product, version, banner}
+    Only for ports with state 'open'.
     """
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         xml = xmltodict.parse(f.read())
@@ -70,7 +70,7 @@ def parse_nmap_xml(file_path):
         if not isinstance(h, dict):
             continue
 
-        # preskoč hosty bez address
+        # skip hosts without an address
         ip = _pick_ip(h.get("address"))
         if not ip:
             continue
@@ -82,7 +82,7 @@ def parse_nmap_xml(file_path):
             if not isinstance(p, dict):
                 continue
 
-            # filtruj iba open porty
+            # filter only open ports
             st = p.get("state") or {}
             if isinstance(st, dict):
                 if st.get("@state") != "open":
@@ -111,7 +111,7 @@ def parse_nmap_xml(file_path):
 
 
 # ---------------------------------------------------------------
-# Funkcia na uloženie dát do PostgreSQL
+# Function to save data into PostgreSQL
 # ---------------------------------------------------------------
 
 
@@ -140,7 +140,7 @@ def upsert_into_db(records, conn_str):
     rows = cur.fetchall()
     id_map = {ip: hid for (hid, ip) in rows}
 
-    # 2) INSERT services with batch de-dupe
+    # 2) INSERT services with batch de-duplication
     svc_rows, seen = [], set()
     for r in records:
         hid = id_map.get(r["ip"])
