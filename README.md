@@ -145,7 +145,7 @@ docker compose up -d
 ## Architecture (Simplified)
 ```
 [ Job Configs (YAML) ]
-→ Orchestrator → Worker Pool → Scanner (nmap/masscan)
+→ Orchestrator → Worker Pool → Scanner (nmap)
 ↓
 Raw XML
 ↓
@@ -156,8 +156,6 @@ Normalized DB ↔ CVE Cache
 Risk Scoring
 ↓
 Dashboard
-↓
-Report / Playbook Generator
 ```
 
 ## Project Components
@@ -167,8 +165,7 @@ Report / Playbook Generator
   - `enrich/cve_enricher.py` – module for CVE enrichment  
   - `scoring/risk_score.py` – risk score computation  
   - `dashboard/` – visualization of findings  
-- **Lab:** `docker-compose.yml` with test hosts and Postgres DB  
-- **Demo:** simple dashboard + sample report with prioritized findings  
+- **Lab:** `docker-compose.yml` with test hosts and Postgres DB   
 
 ## Test Scenarios
 1. **Benign host** – server without known CVEs → expected low score.  
