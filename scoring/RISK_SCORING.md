@@ -1,16 +1,18 @@
 # scoring/risk_score.py
 
 Score model:
-  risk = 0.50 * cvss_norm
-       + 0.25 * asset_score
-       + 0.15 * exposure_score
-       + 0.10 * maturity_score
+  risk = 0.45 * cvss_norm
+        + 0.25 * asset_score
+        + 0.10 * exposure_score
+        + 0.10 * maturity_score
+        + 0.10 * epss_norm
 
 Where:
   - cvss_norm: maximum CVSS value for a vulnerability (0–10) mapped to (0–100)
   - asset_score: from host.asset_criticality ∈ {low, medium, high} → {20, 50, 100}
   - exposure_score: host.is_public → {0, 100}
   - maturity_score: vulnerability.exploitability → {none:0, poc:50, public:100}
+  - epss (0–10) mapped to (0–100)
 
 CLI:
   python -m scoring.risk_score --db postgresql://user:pass@localhost:5432/scans

@@ -9,6 +9,10 @@ import os
 from datetime import datetime
 
 
+def _safe_name(s: str) -> str:
+    return s.replace("/", "_").replace(" ", "_").replace(",", "_")
+
+
 def log_job_start(dsn, job_name, config_dict):
     conn = psycopg2.connect(dsn)
     cur = conn.cursor()
@@ -108,8 +112,9 @@ def main(config_path: str, dsn: str | None = None):
 
     try:
         for target in job.get("scope", []):
-            out_file = job_dir / f"{target}_{ts}.xml"
-            log_file = job_dir / f"{target}_{ts}.log"
+            safe = _safe_name(target)
+            out_file = job_dir / f"{safe}_{ts}.xml"
+            log_file = job_dir / f"{safe}_{ts}.log"
             run_nmap(target, options_list, out_file, log_file)
 
         if job_id and dsn:

@@ -53,20 +53,22 @@ def compute_risk(
     asset_crit: Optional[str],
     is_public: Optional[bool],
     exploitability: Optional[str],
+    epss: Optional[float] = None,
 ) -> float:
     """Computes the final risk score according to the weighted model."""
     cvss_norm = normalize_cvss(cvss)
     asset_score = score_from_criticality(asset_crit)
     exposure_score = score_from_exposure(is_public)
     maturity_score = score_from_maturity(exploitability)
+    epss_norm = float(epss or 0.0) * 100.0
 
     risk = (
-        0.50 * cvss_norm
+        0.45 * cvss_norm
         + 0.25 * asset_score
-        + 0.15 * exposure_score
+        + 0.10 * exposure_score
         + 0.10 * maturity_score
+        + 0.10 * epss_norm
     )
-    # round to two decimal places
     return round(risk, 2)
 
 
@@ -126,6 +128,7 @@ def load_batch(
             s.host_id,
             v.cvss,
             v.exploitability,
+            v.epss,
             {crit_col},
             {pub_col}
         FROM vulnerabilities v
@@ -253,6 +256,7 @@ def main():
                     asset_crit=row["asset_criticality"] if has_crit else "medium",
                     is_public=row["is_public"] if has_public else False,
                     exploitability=row["exploitability"],
+                    epss=row.get("epss"),
                 )
                 if not args.dry_run:
                     update_vuln_score(cur, row["vuln_id"], risk)

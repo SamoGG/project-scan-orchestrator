@@ -28,14 +28,17 @@ CREATE TABLE IF NOT EXISTS scan_jobs (
 );
 
 
-CREATE TABLE IF NOT EXISTS vulnerabilities (
-  id SERIAL PRIMARY KEY,
-  service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-  cve_id TEXT NOT NULL,
-  cvss NUMERIC,
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (service_id, cve_id)
+CREATE TABLE vulnerabilities (
+    id SERIAL PRIMARY KEY,
+    service_id INTEGER REFERENCES services(id) ON DELETE CASCADE,
+    cve_id TEXT,
+    cvss NUMERIC(3,1),
+    description TEXT,
+    exploitability NUMERIC(3,1),
+    epss NUMERIC(5,4),           
+    epss_percentile NUMERIC(5,2),
+    risk_score NUMERIC(5,2),
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
 DO $$

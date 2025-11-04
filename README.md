@@ -41,6 +41,7 @@ docker compose stop
 
 To scan hosts, start the orchestrator.  
 It will create XML and log files for parsing.
+Scans are run one per host. XML is used because it is nativly supported not like JSON.
 ```bash
 docker compose exec orchestrator python orchestrator/scan_orchestrator.py jobs/internal_quickscan.yaml
 ```

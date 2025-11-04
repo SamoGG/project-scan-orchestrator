@@ -30,7 +30,6 @@ def _run_and_stream(cmd: list[str]) -> int:
     lines = []
     for line in proc.stdout:
         lines.append(line.rstrip("\n"))
-        # zvýšime reaktivitu a nezahlcujeme UI
         if len(lines) % 5 == 0:
             placeholder.text("\n".join(lines[-500:]))
     proc.wait()
@@ -88,7 +87,7 @@ st.set_page_config(page_title="BIT Orchestrator Dashboard", layout="wide")
 st.title("BIT Orchestrator — Dashboard")
 st.caption("Scan → Parse → CVE Enrich → Risk Scoring → Prehľad")
 
-# Bočný panel: voľby a nastavenia
+# Sidebar: settings and maintenance
 with st.sidebar:
     st.header("Settings")
     db_dsn = st.text_input("PostgreSQL DSN", value=DEFAULT_DB_DSN)
@@ -142,7 +141,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Tip: In Docker Compose use the service name `db`.")
 
-# Hlavný panel: tlačidlá
+# Main panel: buttons to run steps
 _ensure_dirs()
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -166,7 +165,7 @@ with col2:
             rc = _run_and_stream(cmd)
 with col3:
     if st.button("CVE Enrich", use_container_width=True):
-        # --- načítaj stav pred enrichmentom
+        # --- Load state before enrichment
         try:
             with _db_conn(db_dsn) as conn, conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) AS n FROM vulnerabilities;")
@@ -181,11 +180,20 @@ with col3:
             st.error(f"DB pre-check failed: {e}")
             pre_total = pre_distinct_cves = pre_services = None
 
-        # --- spusti enrichment
-        cmd = ["python", "-m", "enrich.cve_enricher", db_dsn]
+        # --- Run CVE Enricher
+        cmd = [
+            "python",
+            "-m",
+            "enrich.cve_enricher",
+            "--db",
+            db_dsn,
+            "--cve-cache",
+            cve_cache_path,
+            "--with-epss",
+        ]
         rc = _run_and_stream(cmd)
 
-        # --- načítaj stav po enrichmentu a zobraz delta
+        # --- load state after enrichment
         try:
             with _db_conn(db_dsn) as conn, conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) AS n FROM vulnerabilities;")
@@ -219,12 +227,20 @@ with col3:
 with col4:
     if st.button("Risk Scoring", use_container_width=True):
         # Scoring: python -m scoring.risk_score --db ...
-        cmd = ["python", "-m", "scoring.risk_score", "--db", db_dsn]
+        cmd = [
+            "python",
+            "-m",
+            "scoring.risk_score",
+            "--db",
+            db_dsn,
+            "--recompute",
+            "--aggregate",
+        ]
         rc = _run_and_stream(cmd)
 
 st.markdown("---")
 
-# ===== Tabuľky a prehľady ====================================================
+# ===== Tabeles and previews ====================================================
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["Hosts", "Services", "Vulnerabilities", "Top Risks", "Scan Jobs"]
 )
@@ -271,7 +287,7 @@ with tab2:
 
 with tab3:
     st.subheader("All vulnerabilities")
-    qcol1, qcol2, qcol3, qcol4 = st.columns([2, 1, 1, 1])
+    qcol1, qcol2, qcol3, qcol4, qcol5 = st.columns([2, 1, 1, 1, 1])
     with qcol1:
         q_text = st.text_input("Filter (IP / product / CVE / banner contains)", "")
     with qcol2:
@@ -279,6 +295,8 @@ with tab3:
     with qcol3:
         min_risk = st.slider("Min RiskScore", 0, 100, 0, 1)
     with qcol4:
+        min_epss = st.slider("Min EPSS", 0.0, 1.0, 0.0, 0.01)
+    with qcol5:
         limit = st.number_input(
             "Limit", min_value=10, max_value=5000, value=500, step=10
         )
@@ -298,6 +316,10 @@ with tab3:
         conditions.append("COALESCE(v.cvss,0) >= %s")
         params.append(min_cvss)
 
+    if min_epss > 0:
+        conditions.append("COALESCE(v.epss,0) >= %s")
+        params.append(min_epss)
+
     if min_risk > 0:
         conditions.append("COALESCE(v.risk_score,0) >= %s")
         params.append(min_risk)
@@ -305,7 +327,7 @@ with tab3:
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     sql = f"""
         SELECT v.id, h.ip, s.port, s.proto, s.product, s.version,
-            v.cve_id, v.cvss, v.risk_score
+            v.cve_id, v.cvss, v.epss, v.epss_percentile, v.risk_score
         FROM vulnerabilities v
         JOIN services s ON s.id = v.service_id
         JOIN hosts h ON h.id = s.host_id
@@ -321,7 +343,20 @@ with tab3:
         with _db_conn(db_dsn) as conn, conn.cursor() as cur:
             cur.execute(sql, params)
             rows = cur.fetchall()
-            df = pd.DataFrame(rows)
+            cols = [
+                "id",
+                "ip",
+                "port",
+                "proto",
+                "product",
+                "version",
+                "cve_id",
+                "cvss",
+                "epss",
+                "epss_percentile",
+                "risk_score",
+            ]
+            df = pd.DataFrame(rows, columns=cols)
             st.dataframe(df, use_container_width=True, hide_index=True)
             if not df.empty:
                 csv = df.to_csv(index=False).encode("utf-8")
@@ -358,7 +393,7 @@ with tab4:
         with _db_conn(db_dsn) as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT h.ip, s.port, s.product, s.version, v.cve_id, v.cvss, v.risk_score
+                SELECT h.ip, s.port, s.product, s.version, v.cve_id, v.cvss,v.epss, v.epss_percentile, v.risk_score
                 FROM vulnerabilities v
                 JOIN services s ON s.id = v.service_id
                 JOIN hosts h ON h.id = s.host_id
