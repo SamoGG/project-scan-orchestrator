@@ -16,15 +16,99 @@ services:
       - dbdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/00_schema.sql:ro
 
-  benign_host:
-    image: nginx:latest
-    expose:
-      - "80"
+  host01:
+    image: nginx:alpine
+    expose: [ "80" ]
 
-  vulnerable_host:
+  host02:
+    image: nginx:alpine
+    expose: [ "80" ]
+
+  host03:
+    image: httpd:2.4
+    expose: [ "80" ]
+
+  host04:
     image: httpd:2.2
-    expose:
-      - "80"
+    expose: [ "80" ]
+
+  host05:
+    image: nginx:1.14
+    expose: [ "80" ]
+
+  host06:
+    image: nginx:1.12
+    expose: [ "80" ]
+
+  host07:
+    image: python:3.10-alpine
+    command: [ "python3", "-m", "http.server", "8000" ]
+    expose: [ "8000" ]
+
+  host08:
+    image: python:3.9-alpine
+    command: [ "python3", "-m", "http.server", "8080" ]
+    expose: [ "8080" ]
+
+  host09:
+    image: redis:5
+    expose: [ "6379" ]
+
+  host10:
+    image: mariadb:10.3
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+    expose: [ "3306" ]
+
+  host11:
+    image: postgres:12
+    environment:
+      POSTGRES_PASSWORD: test
+    expose: [ "5432" ]
+
+  host12:
+    image: linuxserver/openssh-server
+    environment:
+      - PASSWORD_ACCESS=true
+      - USER_NAME=lab
+      - USER_PASSWORD=labpass
+    expose: [ "22" ]
+
+  host13:
+    image: vulnerables/web-dvwa
+    expose: [ "80" ]
+
+  host14:
+    image: php:7.2-apache
+    expose: [ "80" ]
+
+  host15:
+    image: caddy:latest
+    expose: [ "80" ]
+
+  host16:
+    image: node:18-alpine
+    command: [ "node", "-e", "require('http').createServer((req,res)=>res.end('ok')).listen(3000)" ]
+    expose: [ "3000" ]
+
+  host17:
+    image: ubuntu:18.04
+    command: [ "sh", "-c", "apt update && apt install -y python3 && python3 -m http.server 80" ]
+    expose: [ "80" ]
+
+  host18:
+    image: debian:oldstable
+    command: [ "sh", "-c", "apt update && apt install -y python3 && python3 -m http.server 80" ]
+    expose: [ "80" ]
+
+  host19:
+    image: busybox:latest
+    command: [ "sh", "-c", "nc -lp 9000 -e /bin/sh" ]
+    expose: [ "9000" ]
+
+  host20:
+    image: vulhub/tomcat:8.5.19
+    expose: [ "8080" ]
 
   orchestrator:
     build:
@@ -34,9 +118,6 @@ services:
       - ./data/raw:/app/data/raw
       - ./jobs:/app/jobs
       - ./orchestrator:/app/orchestrator
-    depends_on:
-      - benign_host
-      - vulnerable_host
     tty: true
     stdin_open: true
 

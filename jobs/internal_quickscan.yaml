@@ -1,10 +1,27 @@
 job_name: internal_quickscan
 scope:
-  - benign_host
-  - vulnerable_host
+  - "host01"
+  - "host02"
+  - "host03"
+  - "host04"
+  - "host05"
+  - "host06"
+  - "host07"
+  - "host08"
+  - "host09"
+  - "host10"
+  - "host11"
+  - "host12"
+  - "host13"
+  - "host14"
+  - "host15"
+  - "host16"
+  - "host17"
+  - "host18"
+  - "host19"
+  - "host20"
 scan_tool: nmap
-options: "-sV -Pn -p 80"
-rate_limit: 50
+options: "-sV -Pn -p 22,80,443,8080,8000,3000,5432,3306,6379,9000"
 authorization:
   owner: "IT ops"
   doc: "signed_scan_consent.pdf"

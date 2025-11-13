@@ -110,6 +110,12 @@ Risk calculation policy is in **RISK_SCORING.md**
 
 ---
 
+### Jobs
+- To scan for hosts we can either name all hosts or scan IP range (172.19.0.0/27)
+- We can define tool for scan (nmap only currently)
+- We can define options for the tool
+- Able to define other values, currently not taken into account (autorization, notify, etc,...)
+
 ### Dashboard
 
 ```bash
@@ -167,7 +173,5 @@ Dashboard
   - `dashboard/` – visualization of findings  
 - **Lab:** `docker-compose.yml` with test hosts and Postgres DB   
 
-## Test Scenarios
-1. **Benign host** – server without known CVEs → expected low score.  
-2. **Vulnerable service** – service with known CVEs → expected high score.  
-3. **Exposed internal** – database port exposed to the public network → expected high exposure score.  
+## Hosts
+- In docker there are various hosts 1-20 with different services and vulnarabilities

@@ -1,9 +1,9 @@
 {
-    "Apache httpd:2.2.34": [
+    "apache httpd:2.2.34": [
         {
             "cve_id": "CVE-2017-3169",
             "cvss": 9.8,
-            "description": "Auth bypass in Apache 2.2.x"
+            "description": "Auth bypass in Apache HTTPD 2.2.x"
         },
         {
             "cve_id": "CVE-2017-7679",
@@ -11,11 +11,91 @@
             "description": "mod_mime buffer over-read"
         }
     ],
-    "nginx:1.29.2": [
+    "apache httpd:2.4.25": [
         {
-            "cve_id": "CVE-2024-DEMO",
-            "cvss": 3.1,
-            "description": "Demo, low-risk example"
+            "cve_id": "CVE-2018-1312",
+            "cvss": 6.5,
+            "description": "Apache HTTPD mod_auth_digest vulnerability"
+        }
+    ],
+    "apache httpd:2.4.38": [
+        {
+            "cve_id": "CVE-2019-0211",
+            "cvss": 7.8,
+            "description": "Apache HTTPD privilege escalation via scoreboard"
+        }
+    ],
+    "apache httpd:2.4.65": [
+        {
+            "cve_id": "CVE-2023-43622",
+            "cvss": 7.5,
+            "description": "Apache HTTPD mod_macro heap buffer overflow"
+        }
+    ],
+    "apache tomcat:8.5.19": [
+        {
+            "cve_id": "CVE-2017-12617",
+            "cvss": 9.8,
+            "description": "Arbitrary JSP upload vulnerability"
+        },
+        {
+            "cve_id": "CVE-2016-1240",
+            "cvss": 7.5,
+            "description": "Privilege escalation in Tomcat init scripts"
+        }
+    ],
+    "mysql:5.5.5-10.3.39": [
+        {
+            "cve_id": "CVE-2020-2574",
+            "cvss": 7.5,
+            "description": "MariaDB / MySQL InnoDB vulnerability"
+        }
+    ],
+    "nginx:1.12.2": [
+        {
+            "cve_id": "CVE-2018-16843",
+            "cvss": 7.5,
+            "description": "HTTP/2 heap buffer overflow"
+        },
+        {
+            "cve_id": "CVE-2018-16844",
+            "cvss": 7.5,
+            "description": "HTTP/2 buffer overwrite"
+        }
+    ],
+    "nginx:1.14.2": [
+        {
+            "cve_id": "CVE-2019-20372",
+            "cvss": 7.5,
+            "description": "nginx HTTP/2 buffer overwrite"
+        }
+    ],
+    "nginx:1.29.3": [
+        {
+            "cve_id": "CVE-2023-44487",
+            "cvss": 7.5,
+            "description": "HTTP/2 Rapid Reset Attack (affects many reverse proxies including nginx)"
+        }
+    ],
+    "postgresql db:9.6.0": [
+        {
+            "cve_id": "CVE-2019-9193",
+            "cvss": 8.1,
+            "description": "PostgreSQL SQL injection in pg_recvlogical"
+        }
+    ],
+    "redis key-value store:5.0.14": [
+        {
+            "cve_id": "CVE-2022-0543",
+            "cvss": 10.0,
+            "description": "Redis Lua sandbox escape"
+        }
+    ],
+    "simplehttpserver:0.6": [
+        {
+            "cve_id": "CVE-2019-18348",
+            "cvss": 5.3,
+            "description": "Directory traversal in Python SimpleHTTPServer"
         }
     ]
 }
